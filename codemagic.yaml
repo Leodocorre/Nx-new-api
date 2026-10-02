@@ -8,7 +8,6 @@ workflows:
       vars:
         XCODE_PROJECT: "ThreeOneOSFive.xcodeproj"
         XCODE_SCHEME: "3105"
-        # Fallback only; normal operation reads source/license-config.json remotely.
         LICENSE_VALIDATION_BASE_URL: "https://keyauth.discloud.dev"
     scripts:
       - name: Locate source and build unsigned archive
@@ -16,35 +15,26 @@ workflows:
           set -euo pipefail
           SOURCE_DIR="$CM_BUILD_DIR"
           if [ ! -d "$SOURCE_DIR/$XCODE_PROJECT" ]; then
-            ZIP=""
-            for candidate in \
-              "$CM_BUILD_DIR/NX-CHEATS-source-updated.zip" \
-              "$CM_BUILD_DIR/NX-CHEATS-source-flat.zip" \
-              "$CM_BUILD_DIR/3105-source.zip"; do
-              if [ -f "$candidate" ]; then ZIP="$candidate"; break; fi
-            done
-            if [ -z "$ZIP" ]; then
-              ZIP="$(find "$CM_BUILD_DIR" -maxdepth 2 -type f -name '*.zip' -print -quit || true)"
+            ZIP="$CM_BUILD_DIR/nx-source-updated.zip"
+            if [ ! -f "$ZIP" ]; then
+              echo "ERRO: nx-source-updated.zip não foi encontrado."
+              exit 1
             fi
-            if [ -z "$ZIP" ]; then
-              echo "ERRO: nenhum ZIP de código-fonte foi encontrado em $CM_BUILD_DIR"
-              find "$CM_BUILD_DIR" -maxdepth 2 -type f -print
+            if ! unzip -tq "$ZIP" >/dev/null 2>&1; then
+              echo "ERRO: nx-source-updated.zip está corrompido ou vazio."
+              ls -l "$ZIP"
               exit 1
             fi
             rm -rf "$CM_BUILD_DIR/workspace"
             mkdir -p "$CM_BUILD_DIR/workspace"
-            echo "Extraindo código-fonte: $ZIP"
             unzip -q "$ZIP" -d "$CM_BUILD_DIR/workspace"
-            PROJECT_PATH="$(find "$CM_BUILD_DIR/workspace" -type d -name "$XCODE_PROJECT" -print -quit || true)"
+            PROJECT_PATH="$(find "$CM_BUILD_DIR/workspace" -type d -name "$XCODE_PROJECT" -print -quit)"
             if [ -z "$PROJECT_PATH" ]; then
-              echo "ERRO: $XCODE_PROJECT não foi encontrado dentro de $ZIP"
-              find "$CM_BUILD_DIR/workspace" -maxdepth 4 -print
+              echo "ERRO: $XCODE_PROJECT não foi encontrado dentro do ZIP."
               exit 1
             fi
             SOURCE_DIR="$(dirname "$PROJECT_PATH")"
           fi
-          echo "Projeto Xcode: $SOURCE_DIR/$XCODE_PROJECT"
-          test -d "$SOURCE_DIR/$XCODE_PROJECT"
           mkdir -p "$CM_BUILD_DIR/build/ios/ipa"
           xcodebuild archive -project "$SOURCE_DIR/$XCODE_PROJECT" -scheme "$XCODE_SCHEME" -configuration Release -sdk iphoneos -destination "generic/platform=iOS" -archivePath "$CM_BUILD_DIR/build/3105.xcarchive" CODE_SIGN_IDENTITY="" CODE_SIGNING_REQUIRED=NO CODE_SIGNING_ALLOWED=NO LICENSE_VALIDATION_BASE_URL="$LICENSE_VALIDATION_BASE_URL"
       - name: Package unsigned IPA
