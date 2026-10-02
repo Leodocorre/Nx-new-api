@@ -1,0 +1,44 @@
+workflows:
+  ios-unsigned:
+    name: 3105 — unsigned IPA
+    max_build_duration: 120
+    instance_type: mac_mini_m2
+    environment:
+      xcode: latest
+      vars:
+        XCODE_PROJECT: "ThreeOneOSFive.xcodeproj"
+        XCODE_SCHEME: "3105"
+        # Fallback only; normal operation reads source/license-config.json remotely.
+        LICENSE_VALIDATION_BASE_URL: "https://nxcheatsgenerator.discloud.app"
+    scripts:
+      - name: Locate source and build unsigned archive
+        script: |
+          set -euo pipefail
+          SOURCE_DIR="$CM_BUILD_DIR"
+          if [ ! -d "$SOURCE_DIR/$XCODE_PROJECT" ]; then
+            ZIP=""
+            for candidate in "$CM_BUILD_DIR/NX-CHEATS-source-updated.zip" "$CM_BUILD_DIR/3105-source.zip"; do
+              if [ -f "$candidate" ]; then ZIP="$candidate"; break; fi
+            done
+            test -n "$ZIP"
+            rm -rf "$CM_BUILD_DIR/workspace"
+            mkdir -p "$CM_BUILD_DIR/workspace"
+            unzip -q "$ZIP" -d "$CM_BUILD_DIR/workspace"
+            if [ -d "$CM_BUILD_DIR/workspace/$XCODE_PROJECT" ]; then SOURCE_DIR="$CM_BUILD_DIR/workspace";             elif [ -d "$CM_BUILD_DIR/workspace/3105-login-compatible/$XCODE_PROJECT" ]; then SOURCE_DIR="$CM_BUILD_DIR/workspace/3105-login-compatible";             else find "$CM_BUILD_DIR/workspace" -name "*.xcodeproj" -print; exit 1; fi
+          fi
+          mkdir -p "$CM_BUILD_DIR/build/ios/ipa"
+          xcodebuild archive -project "$SOURCE_DIR/$XCODE_PROJECT" -scheme "$XCODE_SCHEME" -configuration Release -sdk iphoneos -destination "generic/platform=iOS" -archivePath "$CM_BUILD_DIR/build/3105.xcarchive" CODE_SIGN_IDENTITY="" CODE_SIGNING_REQUIRED=NO CODE_SIGNING_ALLOWED=NO LICENSE_VALIDATION_BASE_URL="$LICENSE_VALIDATION_BASE_URL"
+      - name: Package unsigned IPA
+        script: |
+          set -euo pipefail
+          APP_PATH="$(find "$CM_BUILD_DIR/build/3105.xcarchive/Products/Applications" -maxdepth 1 -name "*.app" -print -quit)"
+          test -n "$APP_PATH"
+          rm -rf "$CM_BUILD_DIR/build/unsigned-ipa"
+          mkdir -p "$CM_BUILD_DIR/build/unsigned-ipa/Payload"
+          cp -R "$APP_PATH" "$CM_BUILD_DIR/build/unsigned-ipa/Payload/"
+          cd "$CM_BUILD_DIR/build/unsigned-ipa"
+          zip -qry "$CM_BUILD_DIR/build/ios/ipa/3105-unsigned.ipa" Payload
+    artifacts:
+      - build/ios/ipa/*.ipa
+      - build/3105.xcarchive/**
+      - /tmp/xcodebuild_logs/*.log
