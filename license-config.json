@@ -1,4 +1,4 @@
 {
-  "configVersion": 2,
-  "apiBaseURL": "https://sitemauthnx.discloud.dev"
+  "configVersion": 3,
+  "apiBaseURL": "https://sitemauthnx.discloud.app"
 }
