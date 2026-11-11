@@ -1,4 +1,4 @@
 {
-  "configVersion": 1,
-  "apiBaseURL": "https://keyauth.discloud.dev"
+  "configVersion": 2,
+  "apiBaseURL": "https://sitemauthnx.discloud.dev"
 }
